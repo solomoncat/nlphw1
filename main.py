@@ -2,49 +2,55 @@ import pickle
 import matplotlib.pyplot as plt
 import time
 import numpy as np
-
+from collections import defaultdict
 
 from preprocessing import preprocess_train
 from optimization import get_optimal_vector
 from inference import tag_all_test
 
-
-def compute_accuracy_from_files(predictions_path: str, gold_path: str):
+def compute_accuracy_from_files(predictions_path: str, gold_path: str, pred_start_line: int = 0):
     correct = total = 0
     sentence_accuracies = []
     all_true_tags = []
     all_pred_tags = []
 
-    with open(predictions_path, 'r') as pred_file, open(gold_path, 'r') as gold_file:
-        for i, (pred_line, gold_line) in enumerate(zip(pred_file, gold_file)):
-            pred_tokens = pred_line.strip().split()
-            gold_tokens = gold_line.strip().split()
+    with open(predictions_path, 'r') as pred_file:
+        pred_lines = pred_file.readlines()
+    with open(gold_path, 'r') as gold_file:
+        gold_lines = gold_file.readlines()
 
-            pred_tags = [tok.split('_')[1] for tok in pred_tokens]
-            gold_tags = [tok.split('_')[1] for tok in gold_tokens]
+    # Slice predictions if needed
+    pred_lines = pred_lines[pred_start_line:]
 
-            assert len(pred_tags) == len(gold_tags), f"Mismatch at sentence {i}: {len(pred_tags)} vs {len(gold_tags)}"
+    for i, (pred_line, gold_line) in enumerate(zip(pred_lines, gold_lines)):
+        pred_tokens = pred_line.strip().split()
+        gold_tokens = gold_line.strip().split()
 
-            sent_correct = sum(p == g for p, g in zip(pred_tags, gold_tags))
-            sent_total = len(gold_tags)
-            correct += sent_correct
-            total += sent_total
+        pred_tags = [tok.split('_')[1] for tok in pred_tokens]
+        gold_tags = [tok.split('_')[1] for tok in gold_tokens]
 
-            all_true_tags.extend(gold_tags)
-            all_pred_tags.extend(pred_tags)
+        assert len(pred_tags) == len(gold_tags), f"Mismatch at sentence {i}: {len(pred_tags)} vs {len(gold_tags)}"
 
-            acc = sent_correct / sent_total if sent_total else 0.0
-            sentence_accuracies.append(acc)
+        sent_correct = sum(p == g for p, g in zip(pred_tags, gold_tags))
+        sent_total = len(gold_tags)
+        correct += sent_correct
+        total += sent_total
 
-            if (i + 1) % 100 == 0:
-                print(f"Sentence {i + 1} Accuracy: {acc:.4f}")
+        all_true_tags.extend(gold_tags)
+        all_pred_tags.extend(pred_tags)
+
+        acc = sent_correct / sent_total if sent_total else 0.0
+        sentence_accuracies.append(acc)
+
+        if (i + 1) % 100 == 0:
+            print(f"Sentence {i + 1} Accuracy: {acc:.4f}")
 
     overall = correct / total if total else 0.0
     return overall, sentence_accuracies, all_true_tags, all_pred_tags
 def main():
     _time = time.time()
-    threshold_f1 = 10
-    threshold_f2 = 15
+    threshold_f1 = 11
+    threshold_f2 = 3
     lams = [1]
     train_path = "data/train1.wtag"
     test_path = "data/test1.wtag"
@@ -106,6 +112,28 @@ def main():
         print(f"Tag '{tag}': {errors} errors out of {total} ({error_rate:.2%} misclassification rate)")
 
     print(f"\nTotal time: {time.time() - _time:.2f} seconds")
+        # --- Per-predicted-tag (misidentification) analysis ---
+    print("\n=== Predicted Tag Misidentification Rates ===")
+    pred_total = defaultdict(int)
+    pred_wrong = defaultdict(int)
+
+    for true_tag, pred_tag in zip(all_true_tags, all_pred_tags):
+        pred_total[pred_tag] += 1
+        if true_tag != pred_tag:
+            pred_wrong[pred_tag] += 1
+
+    pred_error_stats = []
+    for tag in sorted(pred_total):
+        total = pred_total[tag]
+        wrong = pred_wrong[tag]
+        misrate = wrong / total if total else 0
+        pred_error_stats.append((tag, total, wrong, misrate))
+
+    pred_error_stats.sort(key=lambda x: x[3], reverse=True)  # sort by highest error rate
+
+    for tag, total, wrong, misrate in pred_error_stats:
+        print(f"When predicted as '{tag}': {wrong} wrong out of {total} ({misrate:.2%} incorrect)")
+
 
 if __name__ == '__main__':
     main()
