@@ -21,7 +21,8 @@ class FeatureStatistics:
             "f207", "f208", "f209", "f210", "f211", "f212", "f213",
             "f214", "f215", "f216", "f217", "f218", "f219", "f220", "f221", "f222",
             "f223", "f224", "f225", "f226", "f227", "f228", "f229", "f230", "f231",
-            "f232", "f233", "f234", "f235", "f236", "f237", "f238", "f240", "f242", "f243", "f244", "f245", "f246", "f247", "f248"
+            "f232", "f233", "f234", "f235", "f236", "f237", "f238", "f240", "f242", "f243", "f244", "f245", "f246", "f247", "f248", "f249", "f250",
+            "f251", "f252", "f253", "f254", "f255", "f256", "f257", "f258", "f259", "f260", "f261", "f262", "f263"
         ]
         self.feature_rep_dict = {fd: OrderedDict() for fd in feature_dict_list}
         self.tags = {"~"}
@@ -201,9 +202,78 @@ class FeatureStatistics:
                     if sentence[i][1] == "NNP" and sentence[i][0][0].isupper() and not sentence[i][0].endswith("s") and sentence[i - 1][0] != "*":
                         self.feature_rep_dict["f247"][(True, sentence[i][1])] = self.feature_rep_dict["f247"].get((True, sentence[i][1]), 0) + 1
 
-                    adj_suffixes = ("able", "ible", "ous", "ful", "nal")
-                    if sentence[i][1] in {"JJ", "JJR", "JJS"} and sentence[i][0].endswith(adj_suffixes):
+                    adj_suffixes = ("able", "ible", "ous", "ful", "nal", "less", "ful", "ive")
+                    if sentence[i][1] in {"JJ", "JJR", "JJS"} and sentence[i][0].endswith(adj_suffixes) and not sentence[i][0][0].isupper():
                         self.feature_rep_dict["f248"][(True, sentence[i][1])] = self.feature_rep_dict["f248"].get((True, sentence[i][1]), 0) + 1
+
+                    if sentence[i][0][0].isupper() and sentence[i][0].endswith("s") and i > 2:
+                        self.feature_rep_dict["f249"][(True, sentence[i][1])] = self.feature_rep_dict["f249"].get((True, sentence[i][1]), 0) + 1
+
+                            # f250: word is "#" and tag is "#"
+                    if sentence[i][0] == "#" and sentence[i][1] == "#":
+                        self.feature_rep_dict["f250"][(True, sentence[i][1])] = self.feature_rep_dict["f250"].get((True, sentence[i][1]), 0) + 1
+
+                    # f251: PDT word like 'all', 'half', 'both' followed by word starting with 'th' or 'a'
+                    if sentence[i][1] == "PDT" and sentence[i][0].lower() in {"all", "half", "both"}:
+                        if i + 1 < len(sentence):
+                            if sentence[i + 1][0].lower().startswith("th") or sentence[i + 1][0].lower().startswith("a"):
+                                self.feature_rep_dict["f251"][(True, sentence[i][1])] = self.feature_rep_dict["f251"].get((True, sentence[i][1]), 0) + 1
+
+                    # f252: tag is CD and word contains any digit
+                    if sentence[i][1] == "CD" and any(char.isdigit() for char in sentence[i][0]):
+                        self.feature_rep_dict["f252"][(True, sentence[i][1])] = self.feature_rep_dict["f252"].get((True, sentence[i][1]), 0) + 1
+                    interjections = {"yes", "yeah", "yup", "uh-huh", "no", "nope", "nah",
+                 "wow", "oops", "oh", "ah", "ouch", "hey", "huh", "alas",
+                 "bravo", "ugh", "aha", "uh", "um"}
+
+                    if c_tag == "UH" and c_word.lower() in interjections:
+                        self.feature_rep_dict["f253"][(True, c_tag)] = self.feature_rep_dict["f253"].get((True, c_tag), 0) + 1
+
+                    vowels = {"a", "e", "i", "o", "u", "y"}
+                    if c_tag == "NNPS" and any(char.isupper() for char in c_word) and len(c_word) >= 2 and i>2:
+                        if c_word[-1] == "s" and c_word[-2].lower() not in vowels:
+                            self.feature_rep_dict["f254"][(True, c_tag)] = self.feature_rep_dict["f254"].get((True, c_tag), 0) + 1
+
+
+                    vowels = "aeiou"
+
+                    # f255: Proper noun (NNP), capitalized, ends in 's' and penultimate letter is a vowel (i > 2 to avoid sentence-initial words)
+                    if c_tag == "NNP" and any(char.isupper() for char in c_word) and len(c_word) >= 2 and i > 2:
+                        if c_word[-1] == "s" and c_word[-2].lower() in vowels:
+                            self.feature_rep_dict["f255"][(True, c_tag)] = self.feature_rep_dict["f255"].get((True, c_tag), 0) + 1
+
+                    # f256: Verb in past tense (VBD) ending in "ed"
+                    if c_tag == "VBD" and c_word.endswith("ed"):
+                        self.feature_rep_dict["f256"][(True, c_tag)] = self.feature_rep_dict["f256"].get((True, c_tag), 0) + 1
+
+                    # f257: Plural noun (NNS) ending in "s"
+                    if c_tag == "NNS" and c_word.endswith("s"):
+                        self.feature_rep_dict["f257"][(True, c_tag)] = self.feature_rep_dict["f257"].get((True, c_tag), 0) + 1
+
+                    # f258: The next word is "%", and this word is tagged CD
+                    if c_tag == "CD" and sentence[i+1][0] == "%":
+                        self.feature_rep_dict["f258"][(True, c_tag)] = self.feature_rep_dict["f258"].get((True, c_tag), 0) + 1
+
+                    # f259: Not an adjective, ends in "s" but not "ous" or "ss"
+                    if not c_tag.startswith("JJ") and c_word.endswith("s") and not (c_word.endswith("ous") or c_word.endswith("ss")):
+                        self.feature_rep_dict["f259"][(True, c_tag)] = self.feature_rep_dict["f259"].get((True, c_tag), 0) + 1
+
+                    # f260: Word is tagged CD and contains "." or "," and has length at least 3
+                    if c_tag == "CD" and len(c_word) >= 3 and ("." in c_word or "," in c_word):
+                        self.feature_rep_dict["f260"][(True, c_tag)] = self.feature_rep_dict["f260"].get((True, c_tag), 0) + 1
+
+                    # f261: Word is "just" and tag is RB
+                    if c_word.lower() == "just" and c_tag == "RB":
+                        self.feature_rep_dict["f261"][(True, c_tag)] = self.feature_rep_dict["f261"].get((True, c_tag), 0) + 1
+
+                    # f262: Past participle verb ending in "ed"
+                    if c_tag == "VBN" and c_word.endswith("ed"):
+                        self.feature_rep_dict["f262"][(True, c_tag)] = self.feature_rep_dict["f262"].get((True, c_tag), 0) + 1
+
+                    # f263: Also for NNS ending in "s" (useful if training this separately from f257)
+                    if c_tag == "NNS" and c_word.endswith("s"):
+                        self.feature_rep_dict["f263"][(True, c_tag)] = self.feature_rep_dict["f263"].get((True, c_tag), 0) + 1
+
 
     def get_prefix_count(self, file_path) -> None:
         with open(file_path) as file:
@@ -496,7 +566,7 @@ def represent_input_with_features(history: Tuple, dict_of_dicts: Dict[str, Dict[
     if p_tag.startswith("RB") and c_tag.startswith("VB") and (True, c_tag) in dict_of_dicts.get("f243", {}):
         features.append(dict_of_dicts["f243"][(True, c_tag)])
 
-    if c_tag == "NNPS" and c_word.endswith("s") and any(ch.isupper() for ch in c_word):
+    if c_tag == "NNPS" and c_word.endswith("s") and any(ch.isupper() for ch in c_word) and p_word != "*":
         if (True, c_tag) in dict_of_dicts.get("f244", {}):
             features.append(dict_of_dicts["f244"][(True, c_tag)])
 
@@ -513,10 +583,89 @@ def represent_input_with_features(history: Tuple, dict_of_dicts: Dict[str, Dict[
         if (True, c_tag) in dict_of_dicts.get("f247", {}):
             features.append(dict_of_dicts["f247"][(True, c_tag)])
 
-    adj_suffixes = ("able", "ible", "ous", "ful", "nal")
-    if c_tag in {"JJ", "JJR", "JJS"} and c_word.endswith(adj_suffixes):
+    adj_suffixes = ("able", "ible", "ous", "ful", "al", "ic", "ary", "ic", "ive", "ian")
+    if c_tag in {"JJ", "JJR", "JJS"} and c_word.endswith(adj_suffixes) and ~c_word[0].isupper():
         if (True, c_tag) in dict_of_dicts.get("f248", {}):
             features.append(dict_of_dicts["f248"][(True, c_tag)])
+
+    if c_word[0].isupper() and c_word.endswith("s") and p_word != "*":
+        if (True, c_tag) in dict_of_dicts.get("f249", {}):
+            features.append(dict_of_dicts["f249"][(True, c_tag)])
+
+    if c_word == "#" and c_tag == "#":
+        if (True, c_tag) in dict_of_dicts.get("f250", {}):
+            features.append(dict_of_dicts["f250"][(True, c_tag)])
+
+    if c_tag == "PDT" and c_word.lower() in {"all", "half", "both"}:
+        if n_word.lower().startswith("th") or n_word.lower().startswith("a"):
+            if (True, c_tag) in dict_of_dicts.get("f251", {}):
+                features.append(dict_of_dicts["f251"][(True, c_tag)])
+
+    if c_tag == "CD" and any(char.isdigit() for char in c_word):
+        if (True, c_tag) in dict_of_dicts.get("f252", {}):
+            features.append(dict_of_dicts["f252"][(True, c_tag)])
+
+        
+
+    interjections = {"yes", "yeah", "yup", "uh-huh", "no", "nope", "nah",
+                    "wow", "oops", "oh", "ah", "ouch", "hey", "huh", "alas",
+                    "bravo", "ugh", "aha", "uh", "um"}
+
+    if c_tag == "UH" and c_word.lower() in interjections:
+        if (True, c_tag) in dict_of_dicts.get("f253", {}):
+            features.append(dict_of_dicts["f253"][(True, c_tag)])
+
+    vowels = {"a", "e", "i", "o", "u", "y"}
+    if c_tag == "NNPS" and any(char.isupper() for char in c_word) and len(c_word) >= 2 and p_word != "*":
+        if c_word[-1] == "s" and c_word[-2].lower() not in vowels:
+            if (True, c_tag) in dict_of_dicts.get("f254", {}):
+                features.append(dict_of_dicts["f254"][(True, c_tag)])
+
+    if c_tag == "NNP" and any(char.isupper() for char in c_word) and len(c_word) >= 2 and p_word != "*":
+        if c_word[-1] == "s" and c_word[-2].lower() in vowels:
+            if (True, c_tag) in dict_of_dicts.get("f255", {}):
+                features.append(dict_of_dicts["f255"][(True, c_tag)])
+
+    # f256: Word ends in "ed" and tag is VBD
+    if c_word.endswith("ed") and c_tag == "VBD":
+        if (True, c_tag) in dict_of_dicts.get("f256", {}):
+            features.append(dict_of_dicts["f256"][(True, c_tag)])
+
+    # f257: Word ends in "s" and tag is NNS
+    if c_word.endswith("s") and c_tag == "NNS":
+        if (True, c_tag) in dict_of_dicts.get("f257", {}):
+            features.append(dict_of_dicts["f257"][(True, c_tag)])
+
+    # f263: Another feature for words ending in "s" and tagged NNS — clarify this feature's purpose if needed
+    if c_word.endswith("s") and c_tag == "NNS":
+        if (True, c_tag) in dict_of_dicts.get("f263", {}):
+            features.append(dict_of_dicts["f263"][(True, c_tag)])
+
+
+
+    # f258: If the next word is "%" then this word should be CD
+    if n_word == "%" and (True, c_tag) in dict_of_dicts.get("f258", {}):
+        features.append(dict_of_dicts["f258"][(True, c_tag)])
+
+    # f259: Tag is NOT adjective, word ends in "s" but NOT "ous" or "ss"
+    if not c_tag.startswith("JJ") and c_word.endswith("s") and not (c_word.endswith("ous") or c_word.endswith("ss")):
+        if (True, c_tag) in dict_of_dicts.get("f259", {}):
+            features.append(dict_of_dicts["f259"][(True, c_tag)])
+
+    # f260: Word contains "." or "," and has length at least 3
+    if len(c_word) >= 3 and ("." in c_word or "," in c_word):
+        if (True, c_tag) in dict_of_dicts.get("f260", {}):
+            features.append(dict_of_dicts["f260"][(True, c_tag)])
+
+    # f261: Word is "just" and tag is RB
+    if c_word.lower() == "just" and c_tag == "RB":
+        if (True, c_tag) in dict_of_dicts.get("f261", {}):
+            features.append(dict_of_dicts["f261"][(True, c_tag)])
+
+        # f262: Word ends in "ed" and tag is VBN
+    if c_word.endswith("ed") and c_tag == "VBN":
+        if (True, c_tag) in dict_of_dicts.get("f262", {}):
+            features.append(dict_of_dicts["f262"][(True, c_tag)])
 
 
     return features
